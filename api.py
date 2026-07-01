@@ -1,29 +1,27 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
+from dotenv import load_dotenv
 import numpy as np
 from groq import Groq
 
-# ── Configuração ──────────────────────────────────────────────
+load_dotenv()
+
 app = FastAPI(title="RAG API")
 model = SentenceTransformer("all-MiniLM-L6-v2")
-import os
 groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 supabase = create_client(
     os.environ.get("SUPABASE_URL"),
     os.environ.get("SUPABASE_ANON_KEY")
 )
-)
-
 
 class Documento(BaseModel):
     texto: str
 
-
 class Pergunta(BaseModel):
     texto: str
-
 
 def chunk_texto(texto, tamanho=150, overlap=30):
     palavras = texto.split()
@@ -35,18 +33,15 @@ def chunk_texto(texto, tamanho=150, overlap=30):
         i += tamanho - overlap
     return chunks
 
-
 def parse_embedding(emb):
     if isinstance(emb, str):
         return [float(x) for x in emb.strip("[]").split(",")]
     return emb
 
-
 @app.get("/")
 def home():
     total = supabase.table("documentos").select("id", count="exact").execute()
     return {"status": "RAG API rodando", "chunks_indexados": total.count}
-
 
 @app.post("/indexar")
 def indexar(doc: Documento):
@@ -58,7 +53,6 @@ def indexar(doc: Documento):
             "embedding": emb.tolist()
         }).execute()
     return {"mensagem": "Documento indexado com sucesso", "chunks_criados": len(chunks)}
-
 
 @app.post("/perguntar")
 def perguntar(pergunta: Pergunta):
